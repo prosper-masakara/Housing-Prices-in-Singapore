@@ -1,0 +1,352 @@
+---
+title: '**PREDICTING HOUSE PRICES USING LINEAR REGRESSION MODEL IN R**'
+output:
+  pdf_document: default
+  html_notebook: default
+  word_document: default,
+---
+
+
+**1.Introduction**
+
+The aim of this project is to assess the use of a linear regression model to predict housing prices in Singapore.
+
+
+
+Our houses dataset has several variables. The 'Unit Price' variable will be the response variable whereas the rest of the variables in the dataset will be predictors. 
+
+
+As part of completing the project, I will carry out steps that include Data Cleaning, Exploratory Data Analysis, Data Modelling and Conclusion.
+
+
+The project will answer the following *questions*:
+i)Which linear regression model is best suited to predict Price_Unit?
+ii)How is the model performing in terms of predicted values against actual values?
+
+
+**2.Data Pre-processing and Cleaning.**
+
+```{r}
+#rm(list=ls()) #clearing the environment
+```
+
+-loading libraries:
+```{r}
+library(lattice)
+library(glmnet)
+library(datasets)
+library(class)
+library(car)
+```
+
+
+-importing the dataset which is a csv file from the directory:
+```{r}
+Houses <- read.delim("Real estate.csv", sep = ',', header = TRUE)
+
+```
+
+
+-Checking the structure of the dataset and the datatypes
+
+```{r}
+head(Houses)
+```
+...
+```{r}
+dim(Houses)
+
+```
+...
+```{r}
+str(Houses)
+```
+
+-Our data set have 418 observations and 8 variables. Of the 8 variables, 6 are numerical and 2 are integers.
+
+
+
+-After Pre-processing, im now going to do some data cleaning. This involves dealing with missing data, removing unnecessary data and changing names.
+
+
+-firstly, I will remove the first column as it is just an index and will not affect our predictions.
+```{r}
+Houses <- Houses[,-1]
+head(Houses)
+```
+-redefine the names of the columns to be more presentable.
+
+```{r}
+colnames(Houses) <- c("Trans_Date", "Age_of_House", "Dist_to_Stores", "No_Stores", "Lat", "Long", "Price_Unit")
+head(Houses)
+```
+
+-check for missing data:
+```{r}
+which(is.na(Houses) == TRUE)
+```
+-there is no missing values in our Houses dataset, which is a good thing.
+
+
+- checking the class of each variable in our dataset.
+```{r}
+apply(Houses, 2, 'class')
+```
+- All the variables are of numeric class, they will be no need of changing classes.
+
+
+
+**3.Exploratory Data Analysis**
+
+
+- The next step following data pre-processing & cleaning is exploratory data analysis.
+
+
+- the reason for the exploratory data analysis is to check the distribution of data for each variable and to assess the relation between the variables in the dataset, more importantly the relation between the predictor variables and the response variable, 'Price Unit'.
+
+
+- I will start by checking the summary statistics:
+
+```{r}
+summary(Houses)
+```
+- From the summary statistics, there is a big difference from the Max value(117.50) to 3rd Quartile(46.60) of the Price_Unit. The same thing can be observed for the Dist_to_Stores variable. This suggest presence of outlier(s).
+
+-To be certain about the presence of outliers, I will do some data visualization.
+
+
+-I will start with a histogram of 'Price_Unit', to view the distribution of data.
+```{r}
+hist(Houses$Price_Unit, breaks = 20, main = "Histogram of Price per Unit", xlab = "Price_Unit")
+```
+-From the histogram, we do have an outlier(s) with a value of around 120.
+
+
+-I will plot box and whiskers for the Price_Unit and Dist_to_Stores as they are the only 2 variables seemingly with outliers according to the summary statistics. A box plot is a better visualizer of data distribution as it incorporates quartiles.
+```{r}
+boxplot(Houses$Price_Unit, main = "Unit Price")
+```
+-The boxplot confirms our concern, we do have an outlier with a value of just below 120.
+
+
+-now boxplot for Dist_to_Stores:
+```{r}
+boxplot(Houses$Dist_to_Stores, main = "Distance to Stores")
+```
+-for certain, they are a few outliers for the dist_to_stores data.
+
+
+-I will eliminate the few outliers.
+```{r}
+Out_index <- order(Houses$Dist_to_Stores, decreasing = TRUE)[1:5]            #index of outliers in Dist_to_Stores
+Out_index <- c(Out_index, order(Houses$Price_Unit, decreasing = TRUE)[1:2])   #index of outliers in Price_Unit + Dist_to_Stores
+Out_index <- c(Out_index, order(Houses$Price_Unit, decreasing = FALSE)[1:5])
+Houses1 <- Houses[-Out_index, ]                                             #eliminate outliers
+
+```
+
+-recheck the summary statistics
+```{r}
+summary(Houses1)
+```
+- much better, though there is still a big difference between the minimum value and the 1st quartile for Price_Unit.
+
+
+
+- Now I will do further exploratory data analysis to observe the relationship between the variables.
+
+
+-I will start with a pairs plot to get an overview of all variable relations:
+```{r}
+pairs(Houses1)
+```
+-There is some positive as well as negative co-relation between our variables.
+
+
+-As one of the objective is to identify the influence of each variable on predicting the 'Price_Unit', I will now visualize each predictor against the response.
+
+```{r}
+#Plot of Price Unit vs Distance to Stores
+xyplot(Price_Unit ~ Dist_to_Stores, data = Houses1)   
+
+```
+- the graph shows a negative correlation between Price Unit and Distance to Stores. The smaller the distance to stores, the higher the price.
+
+- housing units that are close to stores have a higher value whilst those far from the stores have a lower value. This is not a surprise at all as being close to stores is  a big advantage.
+
+
+
+```{r}
+#Plot of Price Unit vs Age of House
+xyplot(Price_Unit ~ Age_of_House, data = Houses1)
+```
+-The plot is giving a mixed relation vibe! I will break the interpretation of the graph into 3 parts:
+
+i)0 to 10 years - houses with less than 10 years do not have low prices, they actually have some of the highest priced housing units. In this category it is units with 1 year or less that have large prices.
+
+ii)11 to 33 years - most of the houses are in this category. They have low priced house to medium priced houses. They do not have highly priced units and all the lowest priced units are in this category.
+
+iii) more than 34 years - surprisingly, units in this category do not have any low priced houses. The housing units are priced medium to high only.
+
+-definitely age has an influence on Price of the houses.
+
+
+
+```{r}
+#Plot of Price Unit vs Number of Stores
+xyplot(Price_Unit ~ No_Stores, data = Houses1)
+```
+- from the visualization, there is a positive correlation between Price_Unit and No_Stores. 
+
+- the higher the number of stores in the area, the higher the house prices.
+
+
+
+```{r}
+#Plot of Price Unit vs Latitude
+xyplot(Price_Unit ~ Lat, data = Houses1)
+```
+-the higher the latitude, the higher the house price, according to graph of Lat and Price_Unit which is showing a positive correlation.
+
+
+
+```{r}
+#Plot of Price Unit vs Longitude
+xyplot(Price_Unit ~ Long, data = Houses1)
+```
+-the positive correlation between Price unit and longitude seem to be weak. as the longitude increases, the price spread throughout.
+
+-generally from the graph, houses with small longitude are priced very low.
+
+
+
+```{r}
+#Plot of Price Unit vs Transactional Date
+xyplot(Price_Unit ~ Trans_Date, data = Houses1)
+```
+- price unit and transactional date, have a constant relationship.
+
+
+- this can be due to the fact that all the houses in this data were sold within a 12 months period hence constant pricing.
+
+
+- in accordance with the visualizations there is a possibility that all our variables do influence response variable, 'Price_Unit'.
+
+
+
+**4.Data Modelling**
+-This stage of data modelling will involve fitting the linear regression model, dividing our data into test and train sets, predicting and error profiling.
+
+
+**training and test sets:**
+```{r}
+N <- length(Houses1[,1]) #let N be the number of observations in dataset mycsv.
+set.seed(575)
+train_index <- sample(1:N, size = (4/5)*N, replace = FALSE) #getting the random sampled index for the training set
+```
+
+-dividing the data into test and train set using the random generated index, train_index:
+```{r}
+train <- Houses1[train_index,]
+test <- Houses1[-train_index,]
+```
+
+
+**fitting the model:**
+-now its time to fit the linear regression model.
+- I will fit Price_Unit against all the other variables and assess the influence they have on Price_Unit.
+```{r}
+themodel <-lm(Price_Unit ~ Trans_Date + Age_of_House + Dist_to_Stores + No_Stores + Lat + Long, data = train)
+```
+
+-will use the summary function to get details of the fitted model.
+```{r}
+summary(themodel)
+```
+-all the variables are significant except for 'Long'. This means that Longitudinal has no significance on influencing the Price Unit.
+
+-I will refit the model but this time without 'Long' so as to increase the overall influence of the predictors on the response variable.
+
+```{r}
+themodel1 <-lm(Price_Unit ~ Trans_Date + Age_of_House + Dist_to_Stores + No_Stores + Lat, data = train)
+```
+
+-checking the summary statistics of the new model:
+```{r}
+summary(themodel1)
+```
+-Now this is good, all the predictor variables are significant, even the intercept is now more significant.
+
+-The F-statistic has a value of 111.1 with a very small p-value, this shows a strong overall influence of the predictor variables on the response variable, Price_Unit.
+
+
+-Next, I will check if we have an multicolinearity among our variables. I will use the vif function.
+```{r}
+vif(themodel1)
+```
+- there is no multicolinearity among our variables, which is a good thing.
+
+
+*Model Prediction:*
+-now I'm going to predict thePrice_Unit, using the predict function with our fitted model on the test set data.
+
+
+-firstly, I will seperate the response variable from the predictor variables in our traun and test sets:
+```{r}
+train_X = train[,-7]
+train_Y = train[7]
+test_X = test[,-7]
+test_Y = test[7]
+```
+
+-using the predict function:
+```{r}
+y_pred_test = predict(themodel1, newdata = test_X)
+#y_pred_train = predict(themodel1, newdata = train_X)
+```
+
+
+**error profiling:**
+-I will profile the test error, to assess the performance of the model in predicting Price_Unit.
+
+-showing response values against the predicted values for the test set.
+```{r}
+plot(y_pred_test, col = "blue", type = "l", xlim = c(0,105), ylim = c(0,80))
+lines(test_Y, col = "red", type = "l")
+legend(79, 19, legend=c("Prdicted Value", "Actual Value"),  
+       fill = c("blue","red") 
+)
+
+```
+-from the graph, its clear our model could not correctly predict several response values. it underestimated most of the high predictor values.
+
+
+-I will calculate the mean squared error (MSE) to get more insight in the performance of the model:
+```{r}
+test_error = (1/length(y_pred_test)) * (sum(test_Y[1] - y_pred_test)^2)
+```
+....
+```{r}
+test_error
+#class(test_Y[1])
+```
+-The mean squared error 14.21
+-The MSE is big due to the underestimating and overestimating of the response variable.
+
+**5.Conclusion**
+
+
+**Results and discussion:**
+I was able to fulfill the aim of the project, which is to assess the use of a linear regression model to predict housing prices. 
+
+The objectives were to answer 2 research questions. 
+Firstly, after fitting the first model, all the variables were significant except for longitudinal. To enhance the overall impact of the predictors on the response variable, I refitted a new model without longitudinal. The results for the summary statistics of the second model were promising as all predictor variables were now significant, and even the intercept become more significant, demonstrating a strong overall influence of the predictor variables on the response variable, Price Unit.
+
+Secondly, the graph of predicted test values against actual test values indicates that our model fails to accurately predict several response values, particularly underestimating many of the higher predictor values. To gain further insight into the model's performance, I calculated the mean squared error (MSE). The MSE is quite large, reflecting both the under-estimations and over-estimations of the response variable. Overall, the performance of this linear regression model to predict housing prices is not so good.
+
+
+
+**Future Recommendation:**
+To improve the model performance, I recommend implementing cross-validation to ensure that the model generalizes well to unseen data. This can help assess performance more reliably. More so refining the model, I would consider trying different regression techniques, such as Ridge or Lasso to address potential issues like over fitting.
+
+
