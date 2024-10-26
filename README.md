@@ -13,6 +13,7 @@ The dataset comprises information on sold housing units in a neighborhood in Sin
 For further details, please refer to the [data description](Data-Description.pdf)
 
 
+
 Data Analysis
 
 The project [report](Project-Report.pdf) contains comprehensive analysis details addressing the research questions and the insights derived from the data. 
