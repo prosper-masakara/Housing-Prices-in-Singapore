@@ -6,4 +6,4 @@ This project aims to evaluate the effectiveness of linear regression models in p
 
 Dataset
 The dataset comprises information on sold housing units in a neighborhood in Singapore. 
-For further details, please refer to the [data description](Housing-Prices-in-Singapore/Data descroption.pdf)
+For further details, please refer to the [data description](Housing-Prices-in-Singapore/Data Description.pdf)
